@@ -1,0 +1,549 @@
+---
+title: "DemresDemo"
+author: "Ashlee J Mikkelsen"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Introduction
+
+this .rmd is my first attempt at using the demres package (Louvrier et al., 2025) to estimate time varying resilience metrics. The package has data within and vingettes, but I also have data and demographic rates from previous projects working on Northern spotted owls. Since we hope to collaborate with Damon and Katie and use the owl data again, I will try and use my own data and work through this package.
+
+# Environment
+
+## Packages
+
+```{r}
+
+library(demres)
+library(ggplot2)
+library(LaCroixColoR)
+
+
+```
+
+## Graphing theme
+
+```{r}
+
+IZWtheme <- theme(
+    axis.text = element_text(size = 12,face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    panel.grid.major = element_line(color = "grey96"),
+    panel.grid.minor = element_line(color = "grey98"),
+    panel.background = element_rect(fill = "white"),
+    axis.line = element_line(colour = "black",linewidth = 1.1),
+    axis.ticks = element_line(linewidth = 1)
+    )
+theme_set(IZWtheme)
+
+IZWpal <- lacroix_palette("PassionFruit",
+                          n = 40,
+                          type = "continuous")
+
+```
+
+
+# Spotted owl data
+
+So the demres package requires population matricies and if you want to include multiple years, you make a list of population matricies; one for each year.
+
+Luckily, I have already done a lot of this work through my master's degree research and as a class project in my PhD. I have already built full, age specific, stochastic demographic models for NSO. But to begin, I will build simple, 3-stage models.
+
+Spotted owls hatch in the spring and spend the first summer of their lives suppoerted by their parents, but grow increasingly independntent as summer progresses. Around August/september, offspring are mostly independent and beginning to disperse.
+
+Over winter they look for vacant forest to claim as a territory, and attract a mate, then begin breeding. Birds don't typically fledge young until they are 3 years old, so the reproductive value of a 1 and two year old (sub-adult) is lower than an adult. Hence we have 3 survival metrics and two reproductive metrics.
+
+Looking at the blue crane data again, it looks to be only survival. So i guess I start there, with a 3x3 survival matrix made of numbers pulled from
+
+## Range-wide mean demographics
+
+### Generate emperically informed random vital rate estimates
+
+```{r}
+ST.NSOdemo<-matrix(nrow = 8,ncol = 21)
+
+for (t in 1:21) {
+  
+ST.NSOdemo[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+ST.NSOdemo[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+ST.NSOdemo[3,t]<- rbeta(n=1,8,3.8,ncp = 2) # sub-adult survival (Mikkelsen 2021)
+ST.NSOdemo[4,t]<- rbeta(n=1,8,2.1,ncp = 4) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+ST.NSOdemo[5,t] <- rnorm(n=1, mean=0.065, sd=0.022)
+ST.NSOdemo[6,t] <- rnorm(n=1, mean=0.175, sd=0.039)
+ST.NSOdemo[7,t] <- rnorm(n=1, mean=0.309, sd=0.027)
+ST.NSOdemo[8,t]<- ST.NSOdemo[1,t]*ST.NSOdemo[2,t]
+}
+
+```
+
+Smash them together into a list of matricies
+
+```{r}
+
+NSO.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:21) {
+  
+  NSO.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,ST.NSOdemo[8,m],0,0,#fledgling column yr0
+        ST.NSOdemo[5,m],0,ST.NSOdemo[3,m],0, #Sa 1 column yr1
+        ST.NSOdemo[6,m],0,0,ST.NSOdemo[3,m], # SA yr 2 column
+        ST.NSOdemo[7,m],0,0,ST.NSOdemo[4,m]), #yr 3 column
+      ncol = 4)
+} 
+
+```
+
+Now I have a list of 4x4 matricies documenting annual variation in NSO demographic rates.
+
+```{r}
+
+NSO.Res.Data[[1]]
+
+```
+
+### NSO initial vector
+
+That makes me so happy 😁. Now I need an initial vector. This is going to take some estimating. In Dugger et al., 2018, they have the number of owls banded per study area for S1, S2, and Adults. If I multiply my number of S1 by 1-the survival rate of juvs to S1, that should give me an estimate.
+
+```{r}
+nS1 <- 902
+nS2 <- 1077
+nAdult <- 4013
+nPairs <- nAdult/2
+nJuv <- (nS1/0.6)
+
+NSOvec1 <- c(nJuv,nS1,nS2,nAdult)
+NSOvec1 <- NSOvec1 / sum(NSOvec1)
+NSOvec1
+
+```
+
+### Resilience metrics range wide
+
+```{r}
+
+NSO_DemRes <- resilience(
+  listA = NSO.Res.Data,
+    metrics = "all",
+    bounds = TRUE,
+    vector = NSOvec1,
+    TDvector = TRUE,
+    popname = "N spotted owl",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+NSO_DemRes
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_BC <- summary(NSO_DemRes)
+
+```
+
+#### plot
+
+```{r}
+
+plot(NSO_DemRes)
+
+```
+
+### MAPE values
+
+Now I need to see how different the time varying and time constant metrics are. For this I will follow White *et al*. (2025) and use the equation $MAPE= \frac{1}{n}\sum_{i=1}^{n}|\frac{TV_i-TC}{TC}|$
+
+To do this, I need to 
+1. Find the difference between the TC and TV value for each time step
+2. Divide the differnce by the TC value
+2. Take the absolute values of differences
+3. Sum the absolute differences
+4. Divide sum of absolute differences by number of time steps 
+
+
+The TV and TC values are in the NSO_DemRes output file.
+
+```{r}
+str(NSO_DemRes)
+```
+
+
+And we will start with convergence time
+
+#### Convergence time
+
+1. Find the difference between the TC and TV value for each time step
+2. Divide the differnce by the TC value
+3. Take the absolute values of differences
+4. Sum the absolute differences
+5. Divide sum of absolute differences by number of time steps 
+
+```{r}
+
+MAPE.step1 <- NSO_DemRes[,"convt_TV"]- NSO_DemRes[,"convt_TC"]
+MAPE.step2 <- MAPE.step1/NSO_DemRes[,"convt_TC"]
+MAPE.step3 <- abs(MAPE.step2)
+MAPE.step4 <- sum(MAPE.step3)
+MAPE.step5 <- MAPE.step4/length(MAPE.step1)
+MAPE.ConTime <- MAPE.step5
+
+```
+
+$MAPE_{ConvergenceTime} = 1$
+
+Next we will do the lower bounds of convergence time and combine steps for fewer lines of code
+
+1. Find the difference between the TC and TV value for each time step
+2. Divide the differnce by the TC value
+3. Take the absolute values of differences
+4. Sum the absolute differences
+5. Divide sum of absolute differences by number of time steps 
+
+```{r}
+
+MAPE.ConTime.Lower <-sum(
+  abs(
+  (
+    NSO_DemRes[,"convt_lwr_TV"]- NSO_DemRes[,"convt_lwr_TC"]
+    )/NSO_DemRes[,"convt_lwr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{ConvergenceTime LowerBound} = 0.26$
+
+
+Then we repeat for upper bounds of convergence time
+
+```{r}
+
+MAPE.ConTime.Upper <-sum(
+  abs(
+  (
+    NSO_DemRes[,"convt_upr_TV"]- NSO_DemRes[,"convt_upr_TC"]
+    )/NSO_DemRes[,"convt_upr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{ConvergenceTime UpperBound} = 0.47$
+
+
+#### Damping ratio 
+
+```{r}
+
+MAPE.DampRat <-sum(
+  abs(
+  (NSO_DemRes[,"dr_TV"]- NSO_DemRes[,"dr_TC"])/NSO_DemRes[,"dr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{DampingRatio} = 0.53$
+
+
+
+#### Inertia
+
+```{r}
+
+MAPE.Inertia <-sum(
+  abs(
+  (NSO_DemRes[,"inertia_TV"]- NSO_DemRes[,"inertia_TC"])/NSO_DemRes[,"inertia_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{Inertia} = 0.049$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+MAPE.Inertia.Lower <-sum(
+  abs(
+  (NSO_DemRes[,"inertia_lwr_TV"]- NSO_DemRes[,"inertia_lwr_TC"])/NSO_DemRes[,"inertia_lwr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{Inertia LowerBounds} = 0.66$
+
+
+Inertia upper bounds
+
+```{r}
+
+MAPE.Inertia.Upper <-sum(
+  abs(
+  (NSO_DemRes[,"inertia_upr_TV"]- NSO_DemRes[,"inertia_upr_TC"])/NSO_DemRes[,"inertia_upr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{InertiaUpperBounds} = 0.049$
+
+
+#### Reactivity
+
+```{r}
+
+MAPE.Reac <-sum(
+  abs(
+  (NSO_DemRes[,"reac_TV"]- NSO_DemRes[,"reac_TC"])/NSO_DemRes[,"reac_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{Reactivity} = 0.047$
+
+
+Reactivity lower bounds
+
+```{r}
+
+MAPE.Reac.Lower <-sum(
+  abs(
+  (
+    NSO_DemRes[,"reac_lwr_TV"]- NSO_DemRes[,"reac_lwr_TC"]
+    )/NSO_DemRes[,"reac_lwr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{ReactivityLowerBounds} = 0.577$
+
+
+Reactivity upper bounds
+
+```{r}
+
+MAPE.Reac.Upper <-sum(
+  abs(
+  (
+    NSO_DemRes[,"reac_upr_TV"]- NSO_DemRes[,"reac_upr_TC"]
+    )/NSO_DemRes[,"reac_upr_TC"]
+  )
+)/nrow(NSO_DemRes)
+
+
+```
+
+$MAPE_{ReactivityUpperBounds} = 0.030$
+
+
+
+I think what this is telling me is that based on my simulated spotted owl population, time constant resilience metrics are pretty good at capturing the upper portion of the transient dynamics, i.e., the upper bounds of the metrics. But it does a poor job at capturing the lower end of possabilities and did not capture damping ratio well. So the time constant may over-predict NSO resilience to distrubance.  
+
+Above I used averages for the whole range. But we want to include spatial variation, so the next I will need to do is create seperate population matricies for each population and then recalculate my stats. I also need to compare my figures to Julie and Ella's to see how to interpret them. 
+
+Also, in the future I should loop through a list of resilience metrics instead of repeating the same equation over and over.
+
+
+## Population specific NSO demographics
+
+Using the most recent NSO meta-analyises, I will generate empirically informed demographic rates and population matrix models for each population, then calculate resilience metrics
+
+My master's research is the only published analysis on recruitment probability and estimates of survival during the first year are rare, so we do not have population specific juvenile survival rates. 
+
+### CLE
+
+According to the most recent meta analysis (Franklin *et al*. 2021)  The demographics for Cle Elum are as follows:
+Adult survival: mean 0.858 95% CI = 0.828 - 0.888
+
+
+```{r}
+
+NSOdemo.CLE<-matrix(nrow = 8,ncol = 21)
+
+0.309-(1.96*0.027)
+0.309+(1.96*0.027)
+
+for (t in 1:21) {
+  
+NSOdemo.CLE[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+NSOdemo.CLE[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+NSOdemo.CLE[3,t]<- rbeta(n=1,10,4.9,ncp = 1) # sub-adult survival (Dugger et al., 
+NSOdemo.CLE[4,t]<- rbeta(n=1,30,5.7,ncp = 4) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+NSOdemo.CLE[5,t] <- rbeta(n=1,10,76,ncp = 1) # S1 fecundity (Dugger et al., 2016)
+NSOdemo.CLE[6,t] <- rbeta(n=1,20,90,ncp = 1) # S2 fecundity (Dugger et al., 2016)
+NSOdemo.CLE[7,t] <- rbeta(n=1,54,120,ncp = 1) # Adult fecundity (Dugger et al., 2016)
+NSOdemo.CLE[8,t]<- NSOdemo.CLE[1,t]*NSOdemo.CLE[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
+}
+
+NSOdemo.CLE[4,]
+NSOdemo.CLE[3,]
+NSOdemo.CLE[5,]
+NSOdemo.CLE[6,]
+NSOdemo.CLE[7,]
+
+```
+
+
+
+
+### OLY
+
+```{r}
+
+NSOdemo.OLY<-matrix(nrow = 8,ncol = 21)
+
+0.85-(1.96*0.01)
+0.85+(1.96*0.01)
+
+for (t in 1:21) {
+  
+NSOdemo.OLY[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+NSOdemo.OLY[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+NSOdemo.OLY[3,t]<-NSOdemo.OLY[4,t]-0.18  # sub-adult survival (Dugger et al., 
+NSOdemo.OLY[4,t]<- rnorm(n=1,0.89,0.01) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+NSOdemo.OLY[5,t] <- rbeta(n=1,1,7,ncp = 1) # S1 fecundity (Dugger et al., 2016)
+NSOdemo.OLY[6,t] <- rbeta(n=1,5,12,ncp = 1) # S2 fecundity (Dugger et al., 2016)
+NSOdemo.OLY[7,t] <- rbeta(n=1,25,60,ncp = 1) # Adult fecundity (Dugger et al., 2016)
+NSOdemo.OLY[8,t]<- NSOdemo.OLY[1,t]*NSOdemo.OLY[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
+}
+
+NSOdemo.OLY[3,t]<-NSOdemo.OLY[4,t]-0.18  # sub-adult survival (Dugger et al., 
+
+NSOdemo.OLY[4,]
+NSOdemo.OLY[3,]
+
+NSOdemo.OLY[4,]-NSOdemo.OLY[3,]
+
+NSOdemo.OLY[5,]
+NSOdemo.OLY[6,]
+NSOdemo.OLY[7,]
+
+```
+
+
+### COA
+
+```{r}
+
+NSOdemo.COA<-matrix(nrow = 8,ncol = 21)
+
+0.22-(1.96*0.04)
+0.22+(1.96*0.04)
+
+for (t in 1:21) {
+  
+NSOdemo.COA[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+NSOdemo.COA[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+NSOdemo.COA[3,t]<-NSOdemo.COA[4,t]-0.18  # sub-adult survival (Dugger et al., 
+NSOdemo.COA[4,t]<- rnorm(n=1,0.93,0.01) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+NSOdemo.COA[5,t] <- 0 # S1 fecundity (Dugger et al., 2016)
+NSOdemo.COA[6,t] <- rbeta(n=1,5.5,80,ncp = 1) # S2 fecundity (Dugger et al., 2016)
+NSOdemo.COA[7,t] <- rbeta(n=1,26,90,ncp = 1) # Adult fecundity (Dugger et al., 2016)
+NSOdemo.COA[8,t]<- NSOdemo.COA[1,t]*NSOdemo.COA[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
+}
+
+NSOdemo.COA[3,]<-NSOdemo.COA[4,]-0.18  # sub-adult survival (Dugger et al., 
+
+NSOdemo.COA[4,]
+NSOdemo.COA[3,]
+NSOdemo.COA[5,]
+NSOdemo.COA[6,]
+NSOdemo.COA[7,]
+
+```
+
+
+### TYE
+
+```{r}
+
+NSOdemo.TYE<-matrix(nrow = 8,ncol = 21)
+
+0.23-(1.96*0.06)
+0.23+(1.96*0.06)
+
+for (t in 1:21) {
+  
+NSOdemo.TYE[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+NSOdemo.TYE[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+NSOdemo.TYE[3,t]<-0  # sub-adult survival (Dugger et al., 
+NSOdemo.TYE[4,t]<- rnorm(n=1,0.91,0.01) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+NSOdemo.TYE[5,t] <- rbeta(n=1,4.5,200,ncp = 1) # S1 fecundity (Dugger et al., 2016)
+NSOdemo.TYE[6,t] <- rbeta(n=1,5.5,80,ncp = 1) # S2 fecundity (Dugger et al., 2016)
+NSOdemo.TYE[7,t] <- rbeta(n=1,25,80,ncp = 1) # Adult fecundity (Dugger et al., 2016)
+NSOdemo.TYE[8,t]<- NSOdemo.TYE[1,t]*NSOdemo.TYE[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
+}
+
+NSOdemo.TYE[3,]<-NSOdemo.TYE[4,]-0.18  # sub-adult survival (Dugger et al., 
+
+NSOdemo.TYE[4,]
+NSOdemo.TYE[3,]
+NSOdemo.TYE[5,]
+NSOdemo.TYE[6,]
+NSOdemo.TYE[7,]
+
+```
+
+
+### KLA
+
+
+```{r}
+
+NSOdemo.KLA<-matrix(nrow = 8,ncol = 21)
+
+0.36-(1.96*0.03)
+0.36+(1.96*0.03)
+
+for (t in 1:21) {
+  
+NSOdemo.KLA[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
+NSOdemo.KLA[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
+NSOdemo.KLA[3,t]<-0  # sub-adult survival (Dugger et al., 
+NSOdemo.KLA[4,t]<- rnorm(n=1,0.86,0.01) # Adult survival (Franklin et al. 2021 and Mikkelsen 2021)
+NSOdemo.KLA[5,t] <- rbeta(n=1, 8.1,150,ncp = 1) # S1 fecundity (Dugger et al., 2016)
+NSOdemo.KLA[6,t] <- rbeta(n=1,44,125,ncp = 1) # S2 fecundity (Dugger et al., 2016)
+NSOdemo.KLA[7,t] <- rbeta(n=1,95,170,ncp = 1) # Adult fecundity (Dugger et al., 2016)
+NSOdemo.KLA[8,t]<- NSOdemo.KLA[1,t]*NSOdemo.KLA[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
+}
+
+NSOdemo.KLA[3,]<-NSOdemo.KLA[4,]-0.18  # sub-adult survival (Dugger et al., 
+
+NSOdemo.KLA[4,]
+NSOdemo.KLA[3,]
+NSOdemo.KLA[5,]
+NSOdemo.KLA[6,]
+NSOdemo.KLA[7,]
+
+```
+
