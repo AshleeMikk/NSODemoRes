@@ -95,7 +95,7 @@ for (m in 1:21) {
         0,ST.NSOdemo[8,m],0,0,#fledgling column yr0
         ST.NSOdemo[5,m],0,ST.NSOdemo[3,m],0, #Sa 1 column yr1
         ST.NSOdemo[6,m],0,0,ST.NSOdemo[3,m], # SA yr 2 column
-        ST.NSOdemo[7,m],0,0,ST.NSOdemo[4,m]), #yr 3 column
+        ST.NSOdemo[7,m],0,0,ST.NSOdemo[4,m]), #adult yr 3 column
       ncol = 4)
 } 
 
@@ -374,13 +374,16 @@ Above I used averages for the whole range. But we want to include spatial variat
 Also, in the future I should loop through a list of resilience metrics instead of repeating the same equation over and over.
 
 
-## Population specific NSO demographics
+# Population specific NSO demographics
 
 Using the most recent NSO meta-analyises, I will generate empirically informed demographic rates and population matrix models for each population, then calculate resilience metrics
 
 My master's research is the only published analysis on recruitment probability and estimates of survival during the first year are rare, so we do not have population specific juvenile survival rates. 
 
-### CLE
+## CLE
+
+
+### Vital rates
 
 According to the most recent meta analysis (Franklin *et al*. 2021)  The demographics for Cle Elum are as follows:
 Adult survival: mean 0.858 95% CI = 0.828 - 0.888
@@ -389,9 +392,6 @@ Adult survival: mean 0.858 95% CI = 0.828 - 0.888
 ```{r}
 
 NSOdemo.CLE<-matrix(nrow = 8,ncol = 21)
-
-0.309-(1.96*0.027)
-0.309+(1.96*0.027)
 
 for (t in 1:21) {
   
@@ -405,25 +405,145 @@ NSOdemo.CLE[7,t] <- rbeta(n=1,54,120,ncp = 1) # Adult fecundity (Dugger et al., 
 NSOdemo.CLE[8,t]<- NSOdemo.CLE[1,t]*NSOdemo.CLE[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
 }
 
-NSOdemo.CLE[4,]
-NSOdemo.CLE[3,]
-NSOdemo.CLE[5,]
-NSOdemo.CLE[6,]
-NSOdemo.CLE[7,]
+
+
+```
+### Matrix list
+
+```{r}
+
+CLE.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:length(CLE.Res.Data)) {
+  
+  CLE.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,NSOdemo.CLE[8,m],0,0,#fledgling column yr0
+        NSOdemo.CLE[5,m],0,NSOdemo.CLE[3,m],0, #Sa 1 column yr1
+        NSOdemo.CLE[6,m],0,0,NSOdemo.CLE[3,m], # SA yr 2 column
+        NSOdemo.CLE[7,m],0,0,NSOdemo.CLE[4,m]), #adult yr 3 column
+      ncol = 4)
+} 
 
 ```
 
 
+### Initial vector
 
 
-### OLY
+```{r}
+
+nS1.CLE <- 35
+nS2.CLE <- 34
+nAdult.CLE <- 159
+nJuv.CLE <- (nS1.CLE/0.6)
+
+CLEvec1 <- c(nJuv.CLE,nS1.CLE,nS2.CLE,nAdult.CLE)
+CLEvec1 <- CLEvec1 / sum(CLEvec1)
+CLEvec1
+
+
+```
+
+### Resilience metrics CLE
+
+### Inertia Only
+
+```{r}
+
+CLE_DemRes.Int <- resilience(
+  listA = CLE.Res.Data,
+    metrics = "inertia",
+    bounds = TRUE,
+    vector = CLEvec1,
+    TDvector = TRUE,
+    popname = "CLE",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+CLE_DemRes.Int
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_CLE.Int <- summary(CLE_DemRes.Int)
+
+```
+
+#### plot
+
+```{r}
+
+plot(CLE_DemRes.Int)
+
+```
+
+#### CLE MAPE 
+
+##### Inertia
+
+```{r}
+
+CLE.MAPE.Inertia <-sum(
+  abs(
+  (CLE_DemRes.Int[,"inertia_TV"]- CLE_DemRes.Int[,"inertia_TC"])/CLE_DemRes.Int[,"inertia_TC"]
+  )
+)/nrow(CLE_DemRes.Int)
+
+
+```
+
+$CLE_{MAPE_{inertia}} = 0.032$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+CLE.MAPE.Inertia.Lower <-sum(
+  abs(
+  (CLE_DemRes.Int[,"inertia_lwr_TV"]- CLE_DemRes.Int[,"inertia_lwr_TC"])/CLE_DemRes.Int[,"inertia_lwr_TC"]
+  )
+)/nrow(CLE_DemRes.Int)
+
+
+```
+
+$CLE_{MAPE_{Inertia LowerBounds}} = 0.461$
+
+
+Inertia upper bounds
+
+```{r}
+
+CLE.MAPE.Inertia.Upper <-sum(
+  abs(
+  (CLE_DemRes.Int[,"inertia_upr_TV"]- CLE_DemRes.Int[,"inertia_upr_TC"])/CLE_DemRes.Int[,"inertia_upr_TC"]
+  )
+)/nrow(CLE_DemRes.Int)
+
+
+```
+
+$CLE_{MAPE_{InertiaUpperBounds}} = 0.029$
+
+
+## OLY
+
+### Vital rates
 
 ```{r}
 
 NSOdemo.OLY<-matrix(nrow = 8,ncol = 21)
-
-0.85-(1.96*0.01)
-0.85+(1.96*0.01)
 
 for (t in 1:21) {
   
@@ -437,28 +557,155 @@ NSOdemo.OLY[7,t] <- rbeta(n=1,25,60,ncp = 1) # Adult fecundity (Dugger et al., 2
 NSOdemo.OLY[8,t]<- NSOdemo.OLY[1,t]*NSOdemo.OLY[2,t] # First year of life joint prob of both surviving the summer and fall dispersal
 }
 
-NSOdemo.OLY[3,t]<-NSOdemo.OLY[4,t]-0.18  # sub-adult survival (Dugger et al., 
-
-NSOdemo.OLY[4,]
+NSOdemo.OLY[3,]<-NSOdemo.OLY[4,]-0.18  # sub-adult survival (Dugger et al., 
+NSOdemo.OLY[1,]
+NSOdemo.OLY[2,]
 NSOdemo.OLY[3,]
-
-NSOdemo.OLY[4,]-NSOdemo.OLY[3,]
-
+NSOdemo.OLY[4,]
 NSOdemo.OLY[5,]
 NSOdemo.OLY[6,]
 NSOdemo.OLY[7,]
+NSOdemo.OLY[8,]
 
 ```
 
 
-### COA
+### Matrix list
+
+```{r}
+
+OLY.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:length(OLY.Res.Data)) {
+  
+  OLY.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,NSOdemo.OLY[8,m],0,0,#fledgling column yr0
+        NSOdemo.OLY[5,m],0,NSOdemo.OLY[3,m],0, #Sa 1 column yr1
+        NSOdemo.OLY[6,m],0,0,NSOdemo.OLY[3,m], # SA yr 2 column
+        NSOdemo.OLY[7,m],0,0,NSOdemo.OLY[4,m]), #adult yr 3 column
+      ncol = 4)
+} 
+
+```
+
+
+### Initial vector
+
+
+```{r}
+
+nS1.OLY <- 21
+nS2.OLY <- 39
+nAdult.OLY <- 349
+nJuv.OLY <- (nS1.OLY/0.6)
+
+OLYvec1 <- c(nJuv.OLY,nS1.OLY,nS2.OLY,nAdult.OLY)
+OLYvec1 <- OLYvec1 / sum(OLYvec1)
+OLYvec1
+
+
+```
+
+### Resilience metrics OLY
+
+### Inertia Only
+
+```{r}
+
+OLY_DemRes.Int <- resilience(
+  listA = OLY.Res.Data,
+    metrics = "inertia",
+    bounds = TRUE,
+    vector = OLYvec1,
+    TDvector = TRUE,
+    popname = "OLY",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+OLY_DemRes.Int
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_OLY.Int <- summary(OLY_DemRes.Int)
+
+```
+
+#### plot
+
+```{r}
+
+plot(OLY_DemRes.Int)
+
+```
+
+#### OLY MAPE 
+
+##### Inertia
+
+```{r}
+
+OLY.MAPE.Inertia <-sum(
+  abs(
+  (OLY_DemRes.Int[,"inertia_TV"]- OLY_DemRes.Int[,"inertia_TC"])/OLY_DemRes.Int[,"inertia_TC"]
+  )
+)/nrow(OLY_DemRes.Int)
+
+
+```
+
+$OLY_{MAPE_{inertia}} = 0.055$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+OLY.MAPE.Inertia.Lower <-sum(
+  abs(
+  (OLY_DemRes.Int[,"inertia_lwr_TV"]- OLY_DemRes.Int[,"inertia_lwr_TC"])/OLY_DemRes.Int[,"inertia_lwr_TC"]
+  )
+)/nrow(OLY_DemRes.Int)
+
+
+```
+
+$OLY_{MAPE_{inertiaLowerBound}} = 0.63$
+
+
+Inertia upper bounds
+
+```{r}
+
+OLY.MAPE.Inertia.Upper <-sum(
+  abs(
+  (OLY_DemRes.Int[,"inertia_upr_TV"]- OLY_DemRes.Int[,"inertia_upr_TC"])/OLY_DemRes.Int[,"inertia_upr_TC"]
+  )
+)/nrow(OLY_DemRes.Int)
+
+
+```
+
+$OLY_{MAPE_{inertiaUpperBound}} = 0.035$
+
+
+## COA
+
+### Vital rates
 
 ```{r}
 
 NSOdemo.COA<-matrix(nrow = 8,ncol = 21)
-
-0.22-(1.96*0.04)
-0.22+(1.96*0.04)
 
 for (t in 1:21) {
   
@@ -483,14 +730,142 @@ NSOdemo.COA[7,]
 ```
 
 
-### TYE
+
+### Matrix list
+
+```{r}
+
+COA.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:length(COA.Res.Data)) {
+  
+  COA.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,NSOdemo.COA[8,m],0,0,#fledgling column yr0
+        NSOdemo.COA[5,m],0,NSOdemo.COA[3,m],0, #Sa 1 column yr1
+        NSOdemo.COA[6,m],0,0,NSOdemo.COA[3,m], # SA yr 2 column
+        NSOdemo.COA[7,m],0,0,NSOdemo.COA[4,m]), #adult yr 3 column
+      ncol = 4)
+} 
+
+```
+
+
+### Initial vector
+
+
+```{r}
+
+nS1.COA <- 63
+nS2.COA <- 100
+nAdult.COA <- 496
+nJuv.COA <- (nS1.COA/0.6)
+
+COAvec1 <- c(nJuv.COA,nS1.COA,nS2.COA,nAdult.COA)
+COAvec1 <- COAvec1 / sum(COAvec1)
+COAvec1
+
+
+```
+
+### Resilience metrics COA
+
+### Inertia Only
+
+```{r}
+
+COA_DemRes.Int <- resilience(
+  listA = COA.Res.Data,
+    metrics = "inertia",
+    bounds = TRUE,
+    vector = COAvec1,
+    TDvector = TRUE,
+    popname = "COA",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+COA_DemRes.Int
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_COA.Int <- summary(COA_DemRes.Int)
+
+```
+
+#### plot
+
+```{r}
+
+plot(COA_DemRes.Int)
+
+```
+
+#### COA MAPE 
+
+##### Inertia
+
+```{r}
+
+COA.MAPE.Inertia <-sum(
+  abs(
+  (COA_DemRes.Int[,"inertia_TV"]- COA_DemRes.Int[,"inertia_TC"])/COA_DemRes.Int[,"inertia_TC"]
+  )
+)/nrow(COA_DemRes.Int)
+
+
+```
+
+$COA_{MAPE_{inertia}} = 0.031$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+COA.MAPE.Inertia.Lower <-sum(
+  abs(
+  (COA_DemRes.Int[,"inertia_lwr_TV"]- COA_DemRes.Int[,"inertia_lwr_TC"])/COA_DemRes.Int[,"inertia_lwr_TC"]
+  )
+)/nrow(COA_DemRes.Int)
+
+
+```
+
+$COA_{MAPE_{inertiaLowerBound}} = 0.463$
+
+
+Inertia upper bounds
+
+```{r}
+
+COA.MAPE.Inertia.Upper <-sum(
+  abs(
+  (COA_DemRes.Int[,"inertia_upr_TV"]- COA_DemRes.Int[,"inertia_upr_TC"])/COA_DemRes.Int[,"inertia_upr_TC"]
+  )
+)/nrow(COA_DemRes.Int)
+
+
+```
+
+$COA_{MAPE_{inertiaUpperBound}} = 0.023$
+
+## TYE
+
+### Vital rates
 
 ```{r}
 
 NSOdemo.TYE<-matrix(nrow = 8,ncol = 21)
-
-0.23-(1.96*0.06)
-0.23+(1.96*0.06)
 
 for (t in 1:21) {
   
@@ -515,15 +890,141 @@ NSOdemo.TYE[7,]
 ```
 
 
-### KLA
+### Matrix list
+
+```{r}
+
+TYE.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:length(TYE.Res.Data)) {
+  
+  TYE.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,NSOdemo.TYE[8,m],0,0,#fledgling column yr0
+        NSOdemo.TYE[5,m],0,NSOdemo.TYE[3,m],0, #Sa 1 column yr1
+        NSOdemo.TYE[6,m],0,0,NSOdemo.TYE[3,m], # SA yr 2 column
+        NSOdemo.TYE[7,m],0,0,NSOdemo.TYE[4,m]), #adult yr 3 column
+      ncol = 4)
+} 
+
+```
+
+
+### Initial vector
 
 
 ```{r}
 
-NSOdemo.KLA<-matrix(nrow = 8,ncol = 21)
+nS1.TYE <- 156
+nS2.TYE <- 128
+nAdult.TYE <- 530
+nJuv.TYE <- (nS1.TYE/0.6)
 
-0.36-(1.96*0.03)
-0.36+(1.96*0.03)
+TYEvec1 <- c(nJuv.TYE,nS1.TYE,nS2.TYE,nAdult.TYE)
+TYEvec1 <- TYEvec1 / sum(TYEvec1)
+TYEvec1
+
+
+```
+
+### Resilience metrics TYE
+
+### Inertia Only
+
+```{r}
+
+TYE_DemRes.Int <- resilience(
+  listA = TYE.Res.Data,
+    metrics = "inertia",
+    bounds = TRUE,
+    vector = TYEvec1,
+    TDvector = TRUE,
+    popname = "TYE",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+TYE_DemRes.Int
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_TYE.Int <- summary(TYE_DemRes.Int)
+
+```
+
+#### plot
+
+```{r}
+
+plot(TYE_DemRes.Int)
+
+```
+
+#### TYE MAPE 
+
+##### Inertia
+
+```{r}
+
+TYE.MAPE.Inertia <-sum(
+  abs(
+  (TYE_DemRes.Int[,"inertia_TV"]- TYE_DemRes.Int[,"inertia_TC"])/TYE_DemRes.Int[,"inertia_TC"]
+  )
+)/nrow(TYE_DemRes.Int)
+
+
+```
+
+$TYE_{MAPE_{inertia}} = 0.041$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+TYE.MAPE.Inertia.Lower <-sum(
+  abs(
+  (TYE_DemRes.Int[,"inertia_lwr_TV"]- TYE_DemRes.Int[,"inertia_lwr_TC"])/TYE_DemRes.Int[,"inertia_lwr_TC"]
+  )
+)/nrow(TYE_DemRes.Int)
+
+
+```
+
+$TYE_{MAPE_{inertiaLowerBound}} = 0.424$
+
+
+Inertia upper bounds
+
+```{r}
+
+TYE.MAPE.Inertia.Upper <-sum(
+  abs(
+  (TYE_DemRes.Int[,"inertia_upr_TV"]- TYE_DemRes.Int[,"inertia_upr_TC"])/TYE_DemRes.Int[,"inertia_upr_TC"]
+  )
+)/nrow(TYE_DemRes.Int)
+
+
+```
+
+$TYE_{MAPE_{inertiaUpperBound}} = 0.023$
+
+## KLA
+
+### Vital rates
+
+```{r}
+
+NSOdemo.KLA<-matrix(nrow = 8,ncol = 21)
 
 for (t in 1:21) {
   
@@ -544,6 +1045,235 @@ NSOdemo.KLA[3,]
 NSOdemo.KLA[5,]
 NSOdemo.KLA[6,]
 NSOdemo.KLA[7,]
+
+```
+
+
+### Matrix list
+
+```{r}
+
+KLA.Res.Data <- lapply(1:21, matrix, data= NA, nrow=4, ncol=4)
+
+for (m in 1:length(KLA.Res.Data)) {
+  
+  KLA.Res.Data[[m]] <-  
+    matrix(
+      c(
+        0,NSOdemo.KLA[8,m],0,0,#fledgling column yr0
+        NSOdemo.KLA[5,m],0,NSOdemo.KLA[3,m],0, #Sa 1 column yr1
+        NSOdemo.KLA[6,m],0,0,NSOdemo.KLA[3,m], # SA yr 2 column
+        NSOdemo.KLA[7,m],0,0,NSOdemo.KLA[4,m]), #adult yr 3 column
+      ncol = 4)
+} 
+
+```
+
+
+### Initial vector
+
+
+```{r}
+
+nS1.KLA <- 179
+nS2.KLA <- 152
+nAdult.KLA <- 394
+nJuv.KLA <- (nS1.KLA/0.6)
+
+KLAvec1 <- c(nJuv.KLA,nS1.KLA,nS2.KLA,nAdult.KLA)
+KLAvec1 <- KLAvec1 / sum(KLAvec1)
+KLAvec1
+
+
+```
+
+### Resilience metrics KLA
+
+### Inertia Only
+
+```{r}
+
+KLA_DemRes.Int <- resilience(
+  listA = KLA.Res.Data,
+    metrics = "inertia",
+    bounds = TRUE,
+    vector = KLAvec1,
+    TDvector = TRUE,
+    popname = "KLA",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+KLA_DemRes.Int
+
+```
+
+#### Dist of inertia
+
+```{r}
+
+dist_KLA.Int <- summary(KLA_DemRes.Int)
+
+```
+
+#### plot
+
+```{r}
+
+plot(KLA_DemRes.Int)
+
+```
+
+#### KLA MAPE 
+
+##### Inertia
+
+```{r}
+
+KLA.MAPE.Inertia <-sum(
+  abs(
+  (KLA_DemRes.Int[,"inertia_TV"]- KLA_DemRes.Int[,"inertia_TC"])/KLA_DemRes.Int[,"inertia_TC"]
+  )
+)/nrow(KLA_DemRes.Int)
+
+
+```
+
+$KLA_{MAPE_{inertia}} = 0.027$
+
+
+Next we will do Inertia lower bounds
+
+```{r}
+
+KLA.MAPE.Inertia.Lower <-sum(
+  abs(
+  (KLA_DemRes.Int[,"inertia_lwr_TV"]- KLA_DemRes.Int[,"inertia_lwr_TC"])/KLA_DemRes.Int[,"inertia_lwr_TC"]
+  )
+)/nrow(KLA_DemRes.Int)
+
+
+```
+
+$KLA_{MAPE_{inertiaLowerBound}} = 0.455$
+
+
+Inertia upper bounds
+
+```{r}
+
+KLA.MAPE.Inertia.Upper <-sum(
+  abs(
+  (KLA_DemRes.Int[,"inertia_upr_TV"]- KLA_DemRes.Int[,"inertia_upr_TC"])/KLA_DemRes.Int[,"inertia_upr_TC"]
+  )
+)/nrow(KLA_DemRes.Int)
+
+
+```
+
+$KLA_{MAPE_{inertiaUpperBound}} = 0.016$
+
+
+## Combine resilience for all pops
+
+As of 04/03/2025 I am having an issue with the *demres* package and have only calculated inertia across 5 populations. The next step would be to combine the population specific data frames into a single data frame.
+
+```{r}
+
+NSO.RW.DemRes.Int <- rbind(CLE_DemRes.Int,
+                    COA_DemRes.Int,
+                    KLA_DemRes.Int,
+                    OLY_DemRes.Int,
+                    TYE_DemRes.Int)
+
+# Let's also combine the MAPE values into a data frame
+
+popname <- c("CLE","COA","KLA","OLY","TYE")
+
+MAPE.Int <- c(CLE.MAPE.Inertia,
+              COA.MAPE.Inertia,
+              KLA.MAPE.Inertia,
+              OLY.MAPE.Inertia,
+              TYE.MAPE.Inertia)
+
+MAPE.LB <- c(CLE.MAPE.Inertia.Lower,
+               COA.MAPE.Inertia,
+               KLA.MAPE.Inertia.Lower,
+               OLY.MAPE.Inertia.Lower,
+               TYE.MAPE.Inertia.Lower)
+
+MAPE.UB <- c(CLE.MAPE.Inertia.Upper,
+               COA.MAPE.Inertia.Upper,
+               KLA.MAPE.Inertia.Upper,
+               OLY.MAPE.Inertia.Upper,
+               TYE.MAPE.Inertia.Upper)
+
+MAPE.Inertia.df <- data.frame(popname,MAPE.Int,MAPE.LB,MAPE.UB)
+
+```
+
+
+```{r}
+
+
+ggplot(data = NSO.RW.DemRes.Int, aes(timestep, inertia_TV))+
+  geom_line(aes(group=popname, color=popname),
+            linewidth=1.1,
+            alpha=0.7)+
+  geom_point(aes(color=popname,
+                 pch=popname),
+             size=2.5)+
+  scale_color_manual(values=c(IZWpal[2],
+                              IZWpal[10],
+                              IZWpal[18],
+                              IZWpal[26],
+                              IZWpal[34]))
+
+```
+
+
+```{r}
+
+ggplot(data = NSO.RW.DemRes.Int, aes(timestep, inertia_TC))+
+  geom_line(aes(group=popname, color=popname),
+            linewidth=1.1,
+            alpha=0.7)+
+  geom_point(aes(color=popname,
+                 pch=popname),
+             size=2.5)+
+  scale_color_manual(values=c(IZWpal[2],
+                              IZWpal[10],
+                              IZWpal[18],
+                              IZWpal[26],
+                              IZWpal[34]))
+
+```
+
+
+```{r}
+ggplot(data = MAPE.Inertia.df)+
+  geom_point(aes(popname,MAPE.Int,
+                 color=popname,
+                 pch=popname),
+             size=4)+
+  geom_point(aes(popname,MAPE.UB,
+                 color=popname,
+                 pch=popname),
+             size=3,
+             alpha=0.5)+
+  geom_point(aes(popname,MAPE.LB,
+                 color=popname,
+                 pch=popname),
+             size=3, alpha=0.5)+
+  scale_color_manual(values=c(IZWpal[2],
+                              IZWpal[10],
+                              IZWpal[18],
+                              IZWpal[26],
+                              IZWpal[34]))
 
 ```
 
