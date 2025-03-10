@@ -487,6 +487,50 @@ plot(CLE_DemRes.Int)
 
 ```
 
+
+
+### Damping Ratio Only
+
+```{r}
+
+CLE_DemRes.DR <- resilience(
+  listA = CLE.Res.Data,
+    metrics = "dr",
+    bounds = TRUE,
+    vector = CLEvec1,
+    TDvector = TRUE,
+    popname = "CLE",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+CLE_DemRes.DR
+
+```
+
+#### Dist of Damping Ratio
+
+```{r}
+
+dist_CLE.DR <- summary(CLE_DemRes.DR)
+
+```
+
+#### plot
+
+```{r}
+
+plot(CLE_DemRes.DR)
+
+```
+
+
+
+
 #### CLE MAPE 
 
 ##### Inertia
@@ -520,7 +564,20 @@ CLE.MAPE.Inertia.Lower <-sum(
 
 $CLE_{MAPE_{Inertia LowerBounds}} = 0.461$
 
+##### Damping ratio
 
+```{r}
+
+CLE.MAPE.Dr <-sum(
+  abs(
+  (CLE_DemRes.DR[,"dr_TV"]- CLE_DemRes.DR[,"dr_TC"])/CLE_DemRes.DR[,"dr_TC"]
+  )
+)/nrow(CLE_DemRes.DR)
+
+
+```
+
+$CLE_{MAPE_{DampingRatio}} = 0.411$
 Inertia upper bounds
 
 ```{r}
@@ -649,6 +706,50 @@ plot(OLY_DemRes.Int)
 
 ```
 
+
+
+### Damping Ratio Only
+
+```{r}
+
+OLY_DemRes.DR <- resilience(
+  listA = OLY.Res.Data,
+    metrics = "dr",
+    bounds = TRUE,
+    vector = OLYvec1,
+    TDvector = TRUE,
+    popname = "OLY",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+OLY_DemRes.DR
+
+```
+
+#### Dist of Damping Ratio
+
+```{r}
+
+dist_OLY.DR <- summary(OLY_DemRes.DR)
+
+```
+
+#### plot
+
+```{r}
+
+plot(OLY_DemRes.DR)
+
+```
+
+
+
+
 #### OLY MAPE 
 
 ##### Inertia
@@ -697,6 +798,23 @@ OLY.MAPE.Inertia.Upper <-sum(
 ```
 
 $OLY_{MAPE_{inertiaUpperBound}} = 0.035$
+
+
+
+##### Damping ratio
+
+```{r}
+
+OLY.MAPE.Dr <-sum(
+  abs(
+  (OLY_DemRes.DR[,"dr_TV"]- OLY_DemRes.DR[,"dr_TC"])/OLY_DemRes.DR[,"dr_TC"]
+  )
+)/nrow(OLY_DemRes.DR)
+
+
+```
+
+$OLY_{MAPE_{DampingRatio}} = 0.400$
 
 
 ## COA
@@ -810,6 +928,51 @@ plot(COA_DemRes.Int)
 
 ```
 
+
+
+### Damping Ratio Only
+
+```{r}
+
+COA_DemRes.DR <- resilience(
+  listA = COA.Res.Data,
+    metrics = "dr",
+    bounds = TRUE,
+    vector = COAvec1,
+    TDvector = TRUE,
+    popname = "COA",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+COA_DemRes.DR
+
+```
+
+#### Dist of Damping Ratio
+
+```{r}
+
+dist_COA.DR <- summary(COA_DemRes.DR)
+
+```
+
+#### plot
+
+```{r}
+
+plot(COA_DemRes.DR)
+
+```
+
+
+
+
+
 #### COA MAPE 
 
 ##### Inertia
@@ -858,6 +1021,22 @@ COA.MAPE.Inertia.Upper <-sum(
 ```
 
 $COA_{MAPE_{inertiaUpperBound}} = 0.023$
+
+##### Damping ratio
+
+```{r}
+
+COA.MAPE.Dr <-sum(
+  abs(
+  (COA_DemRes.DR[,"dr_TV"]- COA_DemRes.DR[,"dr_TC"])/COA_DemRes.DR[,"dr_TC"]
+  )
+)/nrow(COA_DemRes.DR)
+
+
+```
+
+$COA_{MAPE_{DampingRatio}} = 0.214$
+
 
 ## TYE
 
@@ -969,6 +1148,50 @@ plot(TYE_DemRes.Int)
 
 ```
 
+
+
+### Damping Ratio Only
+
+```{r}
+
+TYE_DemRes.DR <- resilience(
+  listA = TYE.Res.Data,
+    metrics = "dr",
+    bounds = TRUE,
+    vector = TYEvec1,
+    TDvector = TRUE,
+    popname = "TYE",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+TYE_DemRes.DR
+
+```
+
+#### Dist of Damping Ratio
+
+```{r}
+
+dist_TYE.DR <- summary(TYE_DemRes.DR)
+
+```
+
+#### plot
+
+```{r}
+
+plot(TYE_DemRes.DR)
+
+```
+
+
+
+
 #### TYE MAPE 
 
 ##### Inertia
@@ -1018,6 +1241,24 @@ TYE.MAPE.Inertia.Upper <-sum(
 
 $TYE_{MAPE_{inertiaUpperBound}} = 0.023$
 
+
+##### Damping ratio
+
+```{r}
+
+TYE.MAPE.Dr <-sum(
+  abs(
+  (TYE_DemRes.DR[,"dr_TV"]- TYE_DemRes.DR[,"dr_TC"])/TYE_DemRes.DR[,"dr_TC"]
+  )
+)/nrow(TYE_DemRes.DR)
+
+
+```
+
+$TYE_{MAPE_{DampingRatio}} = 0.407$
+
+
+
 ## KLA
 
 ### Vital rates
@@ -1025,8 +1266,7 @@ $TYE_{MAPE_{inertiaUpperBound}} = 0.023$
 ```{r}
 
 NSOdemo.KLA<-matrix(nrow = 8,ncol = 21)
-
-for (t in 1:21) {
+or (t in 1:21) {
   
 NSOdemo.KLA[1,t]<-rnorm(mean=0.60, sd=0.18, n=1) #fledging survival
 NSOdemo.KLA[2,t]<-rbeta(n=1,2,10,ncp = 0.5) #prob. of successful dispersal
@@ -1128,6 +1368,50 @@ plot(KLA_DemRes.Int)
 
 ```
 
+
+
+### Damping Ratio Only
+
+```{r}
+
+KLA_DemRes.DR <- resilience(
+  listA = KLA.Res.Data,
+    metrics = "dr",
+    bounds = TRUE,
+    vector = KLAvec1,
+    TDvector = TRUE,
+    popname = "KLA",
+    time = "both",
+    verbose = TRUE)
+
+```
+#### Output
+
+```{r}
+
+KLA_DemRes.DR
+
+```
+
+#### Dist of Damping Ratio
+
+```{r}
+
+dist_KLA.DR <- summary(KLA_DemRes.DR)
+
+```
+
+#### plot
+
+```{r}
+
+plot(KLA_DemRes.DR)
+
+```
+
+
+
+
 #### KLA MAPE 
 
 ##### Inertia
@@ -1178,9 +1462,27 @@ KLA.MAPE.Inertia.Upper <-sum(
 $KLA_{MAPE_{inertiaUpperBound}} = 0.016$
 
 
+##### Damping ratio
+
+```{r}
+
+KLA.MAPE.Dr <-sum(
+  abs(
+  (KLA_DemRes.DR[,"dr_TV"]- KLA_DemRes.DR[,"dr_TC"])/KLA_DemRes.DR[,"dr_TC"]
+  )
+)/nrow(KLA_DemRes.DR)
+
+
+```
+
+$KLA_{MAPE_{DampingRatio}} = 0.407$
+
+
 ## Combine resilience for all pops
 
 As of 04/03/2025 I am having an issue with the *demres* package and have only calculated inertia across 5 populations. The next step would be to combine the population specific data frames into a single data frame.
+
+### Inertia
 
 ```{r}
 
@@ -1274,6 +1576,68 @@ ggplot(data = MAPE.Inertia.df)+
                               IZWpal[18],
                               IZWpal[26],
                               IZWpal[34]))
+
+```
+
+
+### Damping Ratio
+
+```{r}
+
+NSO.RW.DemRes.Dr <- rbind(CLE_DemRes.DR,
+                    COA_DemRes.DR,
+                    KLA_DemRes.DR,
+                    OLY_DemRes.DR,
+                    TYE_DemRes.DR)
+
+# Let's also combine the MAPE values into a data frame
+
+popname <- c("CLE","COA","KLA","OLY","TYE")
+
+NSO.DR.df <- data.frame(NSO.RW.DemRes.Dr,
+                        popname)
+
+
+
+```
+
+
+
+```{r}
+
+
+ggplot(data = NSO.RW.DemRes.Dr, aes(timestep, dr_TV))+
+  geom_line(aes(group=popname, color=popname),
+            linewidth=1.1,
+            alpha=0.7)+
+  geom_point(aes(color=popname,
+                 pch=popname),
+             size=2.5)+
+  scale_color_manual(values=c(IZWpal[2],
+                              IZWpal[10],
+                              IZWpal[18],
+                              IZWpal[26],
+                              IZWpal[34]))+
+  ylab("Damping ratio- time varying")
+
+```
+
+
+```{r}
+
+ggplot(data = NSO.RW.DemRes.Dr, aes(timestep, dr_TC))+
+  geom_line(aes(group=popname, color=popname),
+            linewidth=1.1,
+            alpha=0.7)+
+  geom_point(aes(color=popname,
+                 pch=popname),
+             size=2.5)+
+  scale_color_manual(values=c(IZWpal[2],
+                              IZWpal[10],
+                              IZWpal[18],
+                              IZWpal[26],
+                              IZWpal[34]))+
+  ylab("Dapming ratio- time constant")
 
 ```
 
